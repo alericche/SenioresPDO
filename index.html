@@ -26,6 +26,7 @@ window.CONFIG = {
 :root {
   --bg: #EDF0EA; --surface: #FAFBF8; --ink: #17211B; --muted: #55625A; --line: #D1D9D0;
   --pitch: #1D6A47; --on-pitch: #FFFFFF; --no: #B23B2B; --on-no: #FFFFFF; --wait: #C3CCC4;
+  --maybe: #A8620A; --on-maybe: #FFFFFF; --work: #35598C; --on-work: #FFFFFF;
   --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
   --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light;
@@ -34,6 +35,7 @@ window.CONFIG = {
   :root {
     --bg: #0E1511; --surface: #17211B; --ink: #E8EFE9; --muted: #97A49B; --line: #2B3A31;
     --pitch: #55B583; --on-pitch: #07160E; --no: #E4745F; --on-no: #1E0B07; --wait: #3F4C44;
+    --maybe: #E5A94B; --on-maybe: #1F1300; --work: #86AEE8; --on-work: #07121F;
     color-scheme: dark;
   }
 }
@@ -95,6 +97,10 @@ nav button[aria-current="page"] { background: var(--ink); border-color: var(--in
 .ans { min-height: 54px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); font-weight: 600; font-size: 17px; }
 .ans.yes[aria-pressed="true"] { background: var(--pitch); border-color: var(--pitch); color: var(--on-pitch); }
 .ans.no[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--on-no); }
+.ans.maybe[aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: var(--on-maybe); }
+.ans.work[aria-pressed="true"] { background: var(--work); border-color: var(--work); color: var(--on-work); }
+.bar .m { background: var(--maybe); }
+.bar .w { background: var(--work); }
 .ans.clr[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 .hint { color: var(--muted); font-size: 15px; margin: 0; }
 .reason { width: 100%; min-height: 48px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); padding: 0 12px; }
@@ -229,6 +235,15 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   };
   var typeLabel = function (t) { return (TYPES[t] || TYPES.allenamento).label; };
 
+  /* ---------- tipi di risposta ---------- */
+  var ANSWERS = {
+    si:     { label: 'Ci sono',            short: 'Sì',     cls: 'yes',   field: null,                        toast: 'Segnato: ci sei' },
+    no:     { label: 'Non ci sono',        short: 'No',     cls: 'no',    field: 'Motivo (facoltativo)',      toast: 'Segnato: non ci sei' },
+    forse:  { label: 'Forse',              short: 'Forse',  cls: 'maybe', field: 'Motivo (facoltativo)', toast: 'Segnato: forse' },
+    lavoro: { label: 'Dipende dal lavoro', short: 'Lavoro', cls: 'work',  field: 'Note (facoltativo)',        toast: 'Segnato: dipende dal lavoro' }
+  };
+  var ANSWER_ORDER = ['si', 'no', 'forse', 'lavoro'];
+
   /* ---------- storage (per questo telefono) ---------- */
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
@@ -291,7 +306,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
       var m = new Map();
       (r[2] || []).forEach(function (a) {
         if (pending.has(a.event_id + '_' + a.player_id)) return;
-        m.set(a.event_id + '_' + a.player_id, { status: a.status === 'si' ? 'si' : 'no', reason: String(a.reason || '') });
+        m.set(a.event_id + '_' + a.player_id, { status: ANSWERS[a.status] ? a.status : 'no', reason: String(a.reason || '') });
       });
       pending.forEach(function (v, k) { if (v) m.set(k, v); });
       state.avail = m;
@@ -313,7 +328,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   function writeAnswer(eid, pid, status, reason, okMsg) {
     var key = eid + '_' + pid;
     var before = state.avail.get(key);
-    var val = status === 'none' ? null : { status: status, reason: status === 'no' ? (reason || '') : '' };
+    var val = status === 'none' ? null : { status: status, reason: status === 'si' ? '' : (reason || '') };
     if (val) state.avail.set(key, val); else state.avail.delete(key);
     pending.set(key, val);
     renderAll();
@@ -335,12 +350,12 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   }
   function setStatus(eid, status) {
     var cur = state.avail.get(eid + '_' + state.me);
-    writeAnswer(eid, state.me, status, status === 'no' && cur ? cur.reason : '', status === 'si' ? 'Segnato: ci sei' : 'Segnato: non ci sei');
+    writeAnswer(eid, state.me, status, status !== 'si' && cur ? cur.reason : '', ANSWERS[status].toast);
   }
   function saveReason(eid, text) {
     var cur = state.avail.get(eid + '_' + state.me);
-    if (!cur || cur.status !== 'no' || (cur.reason || '') === text) { schedule(250); return; }
-    writeAnswer(eid, state.me, 'no', text, 'Motivo salvato');
+    if (!cur || cur.status === 'si' || (cur.reason || '') === text) { schedule(250); return; }
+    writeAnswer(eid, state.me, cur.status, text, 'Salvato');
   }
 
   /* ---------- helpers ---------- */
@@ -353,15 +368,17 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     return true;
   }
   function tally(ev) {
-    var eid = ev.id, yes = [], no = [], wait = [];
+    var eid = ev.id, yes = [], no = [], forse = [], lavoro = [], wait = [];
     state.players.forEach(function (p) {
       if (!eligible(p, ev.type)) return;
       var a = answerOf(eid, p.id);
       if (a && a.status === 'si') yes.push(p);
       else if (a && a.status === 'no') no.push({ p: p, reason: a.reason || '' });
+      else if (a && a.status === 'forse') forse.push({ p: p, reason: a.reason || '' });
+      else if (a && a.status === 'lavoro') lavoro.push({ p: p, reason: a.reason || '' });
       else wait.push(p);
     });
-    return { yes: yes, no: no, wait: wait };
+    return { yes: yes, no: no, forse: forse, lavoro: lavoro, wait: wait };
   }
   var renderTimer = null, deferred = false;
   function schedule(delay) { clearTimeout(renderTimer); renderTimer = setTimeout(renderAll, delay || 16); }
@@ -393,10 +410,17 @@ form.stack textarea { min-height: 120px; resize: vertical; }
       h('button', { class: 'link', type: 'button', onclick: function () { state.coach = true; lsSet('rugby-coach', '1'); renderAll(); } }, 'Sono un allenatore, voglio solo guardare'));
   }
 
+  function noteRows(arr) {
+    return h('div', null, arr.map(function (x) {
+      return h('div', { class: 'no-row' }, h('b', null, x.p.name), x.reason ? h('span', null, x.reason) : null);
+    }));
+  }
+  function noteGroup(title, arr) { return h('div', { class: 'grp' }, h('h3', null, title + ' (' + arr.length + ')'), noteRows(arr)); }
+
   function eventCard(ev, past) {
     var d = parseISO(ev.date);
     var t = tally(ev);
-    var total = t.yes.length + t.no.length + t.wait.length;
+    var total = t.yes.length + t.no.length + t.forse.length + t.lavoro.length + t.wait.length;
     var me = !state.coach && state.me && playerById(state.me);
     var mine = me ? answerOf(ev.id, me.id) : null;
     var rel = ev.date === todayISO() ? 'Oggi' : ev.date === tomorrowISO() ? 'Domani' : '';
@@ -421,11 +445,12 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     } else if (me) {
       answer = h('div', { class: 'stack' },
         h('div', { class: 'answer', role: 'group', 'aria-label': 'La tua risposta' },
-          h('button', { class: 'ans yes', type: 'button', 'aria-pressed': String(!!mine && mine.status === 'si'), onclick: function () { setStatus(ev.id, 'si'); } }, 'Ci sono'),
-          h('button', { class: 'ans no', type: 'button', 'aria-pressed': String(!!mine && mine.status === 'no'), onclick: function () { setStatus(ev.id, 'no'); } }, 'Non ci sono')),
-        mine && mine.status === 'no' ? h('input', {
+          ANSWER_ORDER.map(function (k) {
+            return h('button', { class: 'ans ' + ANSWERS[k].cls, type: 'button', 'aria-pressed': String(!!mine && mine.status === k), onclick: function () { setStatus(ev.id, k); } }, ANSWERS[k].label);
+          })),
+        mine && ANSWERS[mine.status].field ? h('input', {
           class: 'reason', id: 'reason-' + ev.id, type: 'text', maxlength: '120', value: mine.reason || '',
-          placeholder: 'Motivo (facoltativo)', 'aria-label': 'Motivo dell\'assenza',
+          placeholder: ANSWERS[mine.status].field, 'aria-label': ANSWERS[mine.status].field.replace(' (facoltativo)', ''),
           onchange: function (e) { saveReason(ev.id, e.target.value.trim()); },
           onkeydown: function (e) { if (e.key === 'Enter') e.target.blur(); }
         }) : null,
@@ -436,11 +461,16 @@ form.stack textarea { min-height: 120px; resize: vertical; }
 
     var pct = function (n) { return total ? (n / total * 100) : 0; };
     var summary = h('div', { class: 'sum' },
-      h('div', { class: 'bar', role: 'img', 'aria-label': t.yes.length + ' presenti, ' + t.no.length + ' assenti, ' + t.wait.length + ' senza risposta' },
+      h('div', { class: 'bar', role: 'img', 'aria-label': t.yes.length + ' presenti, ' + t.forse.length + ' forse, ' + t.lavoro.length + ' dipende dal lavoro, ' + t.no.length + ' assenti, ' + t.wait.length + ' senza risposta' },
         h('i', { class: 'y', style: 'width:' + pct(t.yes.length) + '%' }),
+        h('i', { class: 'm', style: 'width:' + pct(t.forse.length) + '%' }),
+        h('i', { class: 'w', style: 'width:' + pct(t.lavoro.length) + '%' }),
         h('i', { class: 'n', style: 'width:' + pct(t.no.length) + '%' })),
       h('div', { class: 'counts' },
-        h('span', null, h('b', null, t.yes.length + ' sì'), ' · ', h('b', null, t.no.length + ' no'), ' · ' + t.wait.length + ' in attesa'),
+        h('span', null, h('b', null, t.yes.length + ' sì'),
+          t.forse.length ? [' · ', h('b', null, t.forse.length + ' forse')] : null,
+          t.lavoro.length ? [' · ', h('b', null, t.lavoro.length + ' lavoro')] : null,
+          ' · ', h('b', null, t.no.length + ' no'), ' · ' + t.wait.length + ' in attesa'),
         h('button', { class: 'link', type: 'button', 'aria-expanded': String(open), onclick: function () {
           if (state.expanded.has(ev.id)) state.expanded.delete(ev.id); else state.expanded.add(ev.id);
           renderAll();
@@ -452,10 +482,10 @@ form.stack textarea { min-height: 120px; resize: vertical; }
       detail = h('div', { class: 'detail' },
         h('div', { class: 'grp' }, h('h3', null, 'Ci sono (' + t.yes.length + ')'),
           t.yes.length ? h('div', { class: 'chips' }, t.yes.map(function (p) { return chip(p); })) : h('p', { class: 'hint' }, 'Nessuno per ora.')),
+        t.forse.length ? noteGroup('Forse', t.forse) : null,
+        t.lavoro.length ? noteGroup('Dipende dal lavoro', t.lavoro) : null,
         h('div', { class: 'grp' }, h('h3', null, 'Non ci sono (' + t.no.length + ')'),
-          t.no.length ? h('div', null, t.no.map(function (x) {
-            return h('div', { class: 'no-row' }, h('b', null, x.p.name), x.reason ? h('span', null, x.reason) : null);
-          })) : h('p', { class: 'hint' }, 'Nessuno per ora.')),
+          t.no.length ? noteRows(t.no) : h('p', { class: 'hint' }, 'Nessuno per ora.')),
         h('div', { class: 'grp' }, h('h3', null, 'Senza risposta (' + t.wait.length + ')'),
           t.wait.length ? h('div', { class: 'chips' }, t.wait.map(function (p) { return chip(p, 'wait'); })) : h('p', { class: 'hint' }, 'Hanno risposto tutti.')));
     }
@@ -597,15 +627,15 @@ form.stack textarea { min-height: 120px; resize: vertical; }
       var a = answerOf(eid, p.id), st = a ? a.status : 'none';
       var btn = function (val, label, cls) {
         return h('button', { class: 'ans ' + cls, type: 'button', 'aria-pressed': String(st === val),
-          onclick: function () { writeAnswer(eid, p.id, val, val === 'no' && a ? a.reason : '', 'Risposta aggiornata'); } }, label);
+          onclick: function () { writeAnswer(eid, p.id, val, val !== 'si' && val !== 'none' && a ? a.reason : '', 'Risposta aggiornata'); } }, label);
       };
       return h('div', { class: 'stack ans-row' },
         h('b', null, p.name),
         h('div', { class: 'answer', style: 'grid-template-columns:1fr 1fr 1fr' },
-          btn('si', 'Sì', 'yes'), btn('no', 'No', 'no'), btn('none', 'Vuota', 'clr')),
-        st === 'no' ? h('input', { class: 'reason', type: 'text', maxlength: '120',
-          value: a.reason || '', placeholder: 'Motivo (facoltativo)', 'aria-label': 'Motivo per ' + p.name,
-          onchange: function (e) { writeAnswer(eid, p.id, 'no', e.target.value.trim(), 'Motivo salvato'); } }) : null);
+          ANSWER_ORDER.map(function (k) { return btn(k, ANSWERS[k].short, ANSWERS[k].cls); }), btn('none', 'Vuota', 'clr')),
+        ANSWERS[st] && ANSWERS[st].field ? h('input', { class: 'reason', type: 'text', maxlength: '120',
+          value: a.reason || '', placeholder: ANSWERS[st].field, 'aria-label': ANSWERS[st].field.replace(' (facoltativo)', '') + ' per ' + p.name,
+          onchange: function (e) { writeAnswer(eid, p.id, st, e.target.value.trim(), 'Salvato'); } }) : null);
     }));
   }
 
