@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Disponibilità Seniores PDO</title>
+<meta name="description" content="Segna se ci sei a partite e allenamenti.">
+<meta property="og:title" content="Disponibilità Seniores PDO">
+<meta property="og:description" content="Tocca il tuo nome e segna se ci sei a partite e allenamenti.">
+<meta name="theme-color" content="#1D6A47">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231D6A47'/%3E%3Cellipse cx='32' cy='32' rx='22' ry='14' fill='none' stroke='white' stroke-width='5' transform='rotate(-35 32 32)'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<script>
+/* =====================================================================
+   CONFIGURAZIONE — incolla qui i due valori presi da Supabase
+   (Project Settings > API, oppure il pulsante "Connect").
+   ===================================================================== */
+window.CONFIG = {
+  SUPABASE_URL: 'https://vngdppcldbckzuajworf.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_S1YOeU_YTbyQIqBio_01mQ_g1avK1AL'
+};
+</script>
+<style>
+:root {
+  --bg: #EDF0EA; --surface: #FAFBF8; --ink: #17211B; --muted: #55625A; --line: #D1D9D0;
+  --pitch: #1D6A47; --on-pitch: #FFFFFF; --no: #B23B2B; --on-no: #FFFFFF; --wait: #C3CCC4;
+  --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0E1511; --surface: #17211B; --ink: #E8EFE9; --muted: #97A49B; --line: #2B3A31;
+    --pitch: #55B583; --on-pitch: #07160E; --no: #E4745F; --on-no: #1E0B07; --wait: #3F4C44;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--body);
+  padding-top: max(22px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(56px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--pitch); outline-offset: 2px; }
+main { max-width: 640px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
+
+header { display: flex; flex-direction: column; gap: 10px; }
+h1 { font: 700 clamp(34px, 9vw, 46px)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); }
+.halfway { height: 3px; background: repeating-linear-gradient(90deg, var(--ink) 0 14px, transparent 14px 22px); opacity: .55; }
+nav { display: flex; gap: 8px; }
+nav button { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 2px solid var(--line); background: transparent; font-weight: 600; }
+nav button[aria-current="page"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.panel h2 { font: 700 24px/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; margin: 0 0 4px; }
+.panel p { margin: 0; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 12px; }
+
+.names { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.name-btn { min-height: 48px; padding: 0 16px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); font-weight: 600; }
+.name-btn:hover { border-color: var(--pitch); }
+
+.who { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.who span { min-width: 0; overflow-wrap: anywhere; }
+.link { background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; padding: 0 4px; font-weight: 600; }
+.banner { border: 2px solid var(--no); border-radius: 12px; padding: 12px 14px; }
+
+.events { display: flex; flex-direction: column; gap: 14px; }
+.ev { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.ev.past { opacity: .78; }
+.head { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: center; }
+.when { display: flex; flex-direction: column; align-items: center; line-height: 1; border: 2px solid var(--ink); border-radius: 10px; padding: 8px 0 7px; font-family: var(--display); text-transform: uppercase; }
+.when .wd, .when .mo { font-size: 14px; font-weight: 600; letter-spacing: .08em; }
+.when .dn { font-size: 34px; font-weight: 700; padding: 2px 0; }
+.what { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tag { font: 700 15px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; padding: 5px 9px 4px; border-radius: 6px; border: 2px solid var(--ink); }
+.tag.match { background: var(--ink); color: var(--bg); }
+.time { font: 600 20px/1 var(--display); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.rel { font-weight: 600; color: var(--pitch); }
+.note { margin: 0; overflow-wrap: anywhere; }
+
+.answer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ans { min-height: 54px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); font-weight: 600; font-size: 17px; }
+.ans.yes[aria-pressed="true"] { background: var(--pitch); border-color: var(--pitch); color: var(--on-pitch); }
+.ans.no[aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--on-no); }
+.ans.clr[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.hint { color: var(--muted); font-size: 15px; margin: 0; }
+.reason { width: 100%; min-height: 48px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); padding: 0 12px; }
+.reset { align-self: flex-start; }
+
+.sum { display: flex; flex-direction: column; gap: 8px; }
+.bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--wait); }
+.bar i { display: block; height: 100%; }
+.bar .y { background: var(--pitch); }
+.bar .n { background: var(--no); }
+.counts { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.counts b { font-weight: 600; }
+.detail { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+.grp h3 { font: 700 15px/1 var(--display); text-transform: uppercase; letter-spacing: .1em; margin: 0 0 8px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); overflow-wrap: anywhere; }
+.chip.me { border: 2px solid var(--ink); font-weight: 600; }
+.chip.wait { color: var(--muted); }
+.no-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); }
+.no-row:first-of-type { border-top: 0; }
+.no-row b { font-weight: 600; flex: none; }
+.no-row span { color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+
+.more { align-self: center; min-height: 48px; padding: 0 18px; border-radius: 999px; border: 2px solid var(--line); background: transparent; font-weight: 600; }
+
+form.stack label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+form.stack input, form.stack select, form.stack textarea, .field { min-height: 48px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); padding: 8px 12px; width: 100%; }
+form.stack textarea { min-height: 120px; resize: vertical; }
+.row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.primary { min-height: 52px; border-radius: 10px; border: 0; background: var(--pitch); color: var(--on-pitch); font-weight: 600; font-size: 17px; padding: 0 18px; }
+.primary:disabled { opacity: .6; cursor: wait; }
+.list { display: flex; flex-direction: column; margin-top: 10px; }
+.item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.item:first-child { border-top: 0; }
+.item span { min-width: 0; overflow-wrap: anywhere; }
+.del { min-height: 44px; padding: 0 12px; border-radius: 8px; border: 2px solid var(--line); background: transparent; font-weight: 600; flex: none; }
+.del.armed { background: var(--no); border-color: var(--no); color: var(--on-no); }
+.acts { display: flex; gap: 8px; flex: none; }
+.ans-row { padding: 10px 0; border-top: 1px solid var(--line); }
+.ans-row:first-child { border-top: 0; }
+
+.toast { position: fixed; left: 0; right: 0; bottom: env(safe-area-inset-bottom, 0px); display: flex; justify-content: center; padding: 0 16px 16px; pointer-events: none; }
+.toast div { background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; max-width: 520px; font-weight: 500; }
+.toast div.err { background: var(--no); color: var(--on-no); }
+.foot { color: var(--muted); font-size: 14px; text-align: center; margin: 4px 0 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.foot .link { color: var(--muted); font-weight: 500; font-size: 14px; }
+@media (prefers-reduced-motion: no-preference) { .ans, .name-btn { transition: background-color .12s, border-color .12s; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Disponibilità</h1>
+    <p class="sub">Partite e allenamenti. Segna se ci sei, tutta la squadra vede le risposte.</p>
+    <div class="halfway" aria-hidden="true"></div>
+    <nav id="tabs" aria-label="Sezioni" hidden>
+      <button type="button" id="tab-cal" aria-current="page">Calendario</button>
+      <button type="button" id="tab-admin">Gestione</button>
+    </nav>
+  </header>
+
+  <section id="view-cal" class="stack" aria-live="polite">
+    <div class="panel"><h2>Caricamento</h2><p>Sto recuperando il calendario della squadra.</p></div>
+  </section>
+
+  <section id="view-admin" class="stack" hidden></section>
+
+  <div class="foot">
+    <span>Le risposte sono visibili a tutti i giocatori.</span>
+    <button type="button" class="link" id="admin-toggle">Gestione squadra</button>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var CFG = window.CONFIG || {};
+  var BASE = String(CFG.SUPABASE_URL || '').replace(/\/+$/, '');
+  var KEY = String(CFG.SUPABASE_KEY || '');
+  var configured = /^https:\/\//.test(BASE) && BASE.indexOf('INSERISCI') < 0 && KEY && KEY.indexOf('INSERISCI') < 0;
+  var REFRESH_MS = 15000;
+
+  var $ = function (s) { return document.querySelector(s); };
+  var state = {
+    players: [], events: [], avail: new Map(),
+    me: null, coach: false, pin: null, adminEv: null, editing: null, view: 'cal',
+    showPast: false, expanded: new Set(), loaded: false, error: null, askPin: false
+  };
+
+  /* ---------- DOM helper ---------- */
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    if (props) Object.keys(props).forEach(function (k) {
+      var v = props[k];
+      if (v == null || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'value') el.value = v;
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      [].concat(arguments[i]).forEach(function (kid) {
+        if (kid == null || kid === false) return;
+        el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+      });
+    }
+    return el;
+  }
+
+  /* ---------- dates ---------- */
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var toISO = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  var parseISO = function (s) { var p = String(s).split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  var todayISO = function () { return toISO(new Date()); };
+  var tomorrowISO = function () { var d = new Date(); d.setDate(d.getDate() + 1); return toISO(d); };
+  var fmt = function (o, d) { return new Intl.DateTimeFormat('it-IT', o).format(d).replace('.', ''); };
+  var cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
+  function longDate(iso) { return cap(fmt({ weekday: 'long', day: 'numeric', month: 'long' }, parseISO(iso))); }
+  var byDate = function (a, b) { return (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')); };
+
+  /* ---------- storage (per questo telefono) ---------- */
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+
+  /* ---------- toast ---------- */
+  var toastTimer;
+  function toast(msg, isErr) {
+    var box = $('#toast');
+    box.replaceChildren(h('div', { class: isErr ? 'err' : '' }, msg));
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { box.replaceChildren(); }, isErr ? 5000 : 1800);
+  }
+
+  /* ---------- Supabase REST ---------- */
+  function api(path, opts) {
+    opts = opts || {};
+    var headers = { apikey: KEY, 'Content-Type': 'application/json' };
+    if (/^eyJ/.test(KEY)) headers.Authorization = 'Bearer ' + KEY; // chiave "anon" classica
+    if (opts.prefer) headers.Prefer = opts.prefer;
+    return fetch(BASE + '/rest/v1/' + path, {
+      method: opts.method || 'GET', headers: headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined
+    }).then(function (r) {
+      return r.text().then(function (t) {
+        var data = null;
+        try { data = t ? JSON.parse(t) : null; } catch (e) {}
+        if (!r.ok) {
+          var err = new Error((data && data.message) || ('HTTP ' + r.status));
+          err.status = r.status; err.code = data && data.code;
+          throw err;
+        }
+        return data;
+      });
+    });
+  }
+  function rpc(name, args) { return api('rpc/' + name, { method: 'POST', body: args }); }
+  function errText(e) {
+    if (e && /PIN errato/.test(e.message)) return 'PIN errato: rientra nella gestione.';
+    if (e && e.status === 429) return 'Troppe operazioni ravvicinate. Riprova tra un attimo.';
+    if (e && (e.status === 401 || e.status === 403)) return 'Accesso al database rifiutato. Controlla la configurazione.';
+    return 'Salvataggio non riuscito. Controlla la connessione e riprova.';
+  }
+
+  /* ---------- caricamento dati ---------- */
+  var loading = null;
+  function load() {
+    if (loading) return loading;
+    loading = Promise.all([
+      api('players?select=id,name'),
+      api('events?select=id,date,time,type,note'),
+      api('avail?select=event_id,player_id,status,reason')
+    ]).then(function (r) {
+      state.players = (r[0] || []).map(function (p) { return { id: p.id, name: String(p.name || '') }; })
+        .filter(function (p) { return p.name; })
+        .sort(function (a, b) { return a.name.localeCompare(b.name, 'it'); });
+      state.events = (r[1] || []).map(function (e) {
+        return { id: e.id, date: String(e.date || '').slice(0, 10), time: String(e.time || ''), type: e.type === 'partita' ? 'partita' : 'allenamento', note: String(e.note || '') };
+      }).filter(function (e) { return /^\d{4}-\d{2}-\d{2}$/.test(e.date); });
+      var m = new Map();
+      (r[2] || []).forEach(function (a) {
+        if (pending.has(a.event_id + '_' + a.player_id)) return;
+        m.set(a.event_id + '_' + a.player_id, { status: a.status === 'si' ? 'si' : 'no', reason: String(a.reason || '') });
+      });
+      pending.forEach(function (v, k) { if (v) m.set(k, v); });
+      state.avail = m;
+      state.loaded = true; state.error = null;
+    }).catch(function (e) {
+      state.error = (e && (e.status === 401 || e.status === 403 || e.status === 404)) ? 'config' : 'net';
+    }).then(function () { loading = null; renderAll(); });
+    return loading;
+  }
+
+  /* ---------- scritture: risposte ---------- */
+  var pending = new Map(); // risposte inviate ma non ancora confermate
+  var chains = new Map();
+  function enqueue(key, fn) {
+    var next = (chains.get(key) || Promise.resolve()).catch(function () {}).then(fn);
+    chains.set(key, next);
+    return next;
+  }
+  function writeAnswer(eid, pid, status, reason, okMsg) {
+    var key = eid + '_' + pid;
+    var before = state.avail.get(key);
+    var val = status === 'none' ? null : { status: status, reason: status === 'no' ? (reason || '') : '' };
+    if (val) state.avail.set(key, val); else state.avail.delete(key);
+    pending.set(key, val);
+    renderAll();
+    enqueue(key, function () {
+      if (!val) return api('avail?event_id=eq.' + eid + '&player_id=eq.' + pid, { method: 'DELETE', prefer: 'return=minimal' });
+      return api('avail?on_conflict=event_id,player_id', {
+        method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
+        body: { event_id: eid, player_id: pid, status: val.status, reason: val.reason, updated_at: new Date().toISOString() }
+      });
+    }).then(function () {
+      if (pending.get(key) === val) pending.delete(key);
+      if (okMsg) toast(okMsg);
+    }, function (e) {
+      if (pending.get(key) === val) pending.delete(key);
+      if (before) state.avail.set(key, before); else state.avail.delete(key);
+      toast(errText(e), true);
+      renderAll();
+    });
+  }
+  function setStatus(eid, status) {
+    var cur = state.avail.get(eid + '_' + state.me);
+    writeAnswer(eid, state.me, status, status === 'no' && cur ? cur.reason : '', status === 'si' ? 'Segnato: ci sei' : 'Segnato: non ci sei');
+  }
+  function saveReason(eid, text) {
+    var cur = state.avail.get(eid + '_' + state.me);
+    if (!cur || cur.status !== 'no' || (cur.reason || '') === text) { schedule(250); return; }
+    writeAnswer(eid, state.me, 'no', text, 'Motivo salvato');
+  }
+
+  /* ---------- helpers ---------- */
+  function playerById(id) { return state.players.find(function (p) { return p.id === id; }); }
+  function answerOf(eid, pid) { return state.avail.get(eid + '_' + pid); }
+  function tally(eid) {
+    var yes = [], no = [], wait = [];
+    state.players.forEach(function (p) {
+      var a = answerOf(eid, p.id);
+      if (a && a.status === 'si') yes.push(p);
+      else if (a && a.status === 'no') no.push({ p: p, reason: a.reason || '' });
+      else wait.push(p);
+    });
+    return { yes: yes, no: no, wait: wait };
+  }
+  var renderTimer = null, deferred = false;
+  function schedule(delay) { clearTimeout(renderTimer); renderTimer = setTimeout(renderAll, delay || 16); }
+  function typing(box) {
+    var f = document.activeElement;
+    return !!(f && box && box.contains(f) && (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA' || f.tagName === 'SELECT'));
+  }
+
+  /* ---------- vista calendario ---------- */
+  function whoBox() {
+    if (state.coach) {
+      return h('div', { class: 'panel who' },
+        h('span', null, 'Stai guardando come allenatore, in sola lettura.'),
+        h('button', { class: 'link', type: 'button', onclick: function () { state.coach = false; lsSet('rugby-coach', null); renderAll(); } }, 'Sono un giocatore'));
+    }
+    var me = state.me && playerById(state.me);
+    if (me) {
+      return h('div', { class: 'panel who' },
+        h('span', null, 'Rispondi come ', h('b', null, me.name)),
+        h('button', { class: 'link', type: 'button', onclick: function () { state.me = null; lsSet('rugby-me', null); renderAll(); } }, 'Cambia'));
+    }
+    if (!state.players.length) return null;
+    return h('div', { class: 'panel' },
+      h('h2', null, 'Chi sei?'),
+      h('p', null, 'Tocca il tuo nome per rispondere. Lo ricordo la prossima volta.'),
+      h('div', { class: 'names' }, state.players.map(function (p) {
+        return h('button', { class: 'name-btn', type: 'button', onclick: function () { state.me = p.id; lsSet('rugby-me', p.id); window.scrollTo({ top: 0 }); renderAll(); } }, p.name);
+      })),
+      h('button', { class: 'link', type: 'button', onclick: function () { state.coach = true; lsSet('rugby-coach', '1'); renderAll(); } }, 'Sono un allenatore, voglio solo guardare'));
+  }
+
+  function eventCard(ev, past) {
+    var d = parseISO(ev.date);
+    var t = tally(ev.id);
+    var total = state.players.length;
+    var me = !state.coach && state.me && playerById(state.me);
+    var mine = me ? answerOf(ev.id, me.id) : null;
+    var rel = ev.date === todayISO() ? 'Oggi' : ev.date === tomorrowISO() ? 'Domani' : '';
+    var isMatch = ev.type === 'partita';
+    var open = state.expanded.has(ev.id);
+
+    var head = h('div', { class: 'head' },
+      h('div', { class: 'when', 'aria-hidden': 'true' },
+        h('span', { class: 'wd' }, fmt({ weekday: 'short' }, d)),
+        h('span', { class: 'dn' }, d.getDate()),
+        h('span', { class: 'mo' }, fmt({ month: 'short' }, d))),
+      h('div', { class: 'what' },
+        h('div', { class: 'tags' },
+          h('span', { class: 'tag' + (isMatch ? ' match' : '') }, isMatch ? 'Partita' : 'Allenamento'),
+          ev.time ? h('span', { class: 'time' }, ev.time) : null,
+          rel ? h('span', { class: 'rel' }, rel) : null),
+        h('p', { class: 'note' }, longDate(ev.date) + (ev.note ? ' · ' + ev.note : ''))));
+
+    var answer = null;
+    if (me) {
+      answer = h('div', { class: 'stack' },
+        h('div', { class: 'answer', role: 'group', 'aria-label': 'La tua risposta' },
+          h('button', { class: 'ans yes', type: 'button', 'aria-pressed': String(!!mine && mine.status === 'si'), onclick: function () { setStatus(ev.id, 'si'); } }, 'Ci sono'),
+          h('button', { class: 'ans no', type: 'button', 'aria-pressed': String(!!mine && mine.status === 'no'), onclick: function () { setStatus(ev.id, 'no'); } }, 'Non ci sono')),
+        mine && mine.status === 'no' ? h('input', {
+          class: 'reason', id: 'reason-' + ev.id, type: 'text', maxlength: '120', value: mine.reason || '',
+          placeholder: 'Motivo (facoltativo)', 'aria-label': 'Motivo dell\'assenza',
+          onchange: function (e) { saveReason(ev.id, e.target.value.trim()); },
+          onkeydown: function (e) { if (e.key === 'Enter') e.target.blur(); }
+        }) : null,
+        mine ? h('button', { class: 'link reset', type: 'button', onclick: function () { writeAnswer(ev.id, state.me, 'none', '', 'Risposta azzerata'); } }, 'Azzera la mia risposta') : null);
+    } else if (!state.coach && state.players.length) {
+      answer = h('p', { class: 'hint' }, 'Scegli il tuo nome in alto per rispondere.');
+    }
+
+    var pct = function (n) { return total ? (n / total * 100) : 0; };
+    var summary = h('div', { class: 'sum' },
+      h('div', { class: 'bar', role: 'img', 'aria-label': t.yes.length + ' presenti, ' + t.no.length + ' assenti, ' + t.wait.length + ' senza risposta' },
+        h('i', { class: 'y', style: 'width:' + pct(t.yes.length) + '%' }),
+        h('i', { class: 'n', style: 'width:' + pct(t.no.length) + '%' })),
+      h('div', { class: 'counts' },
+        h('span', null, h('b', null, t.yes.length + ' sì'), ' · ', h('b', null, t.no.length + ' no'), ' · ' + t.wait.length + ' in attesa'),
+        h('button', { class: 'link', type: 'button', 'aria-expanded': String(open), onclick: function () {
+          if (state.expanded.has(ev.id)) state.expanded.delete(ev.id); else state.expanded.add(ev.id);
+          renderAll();
+        } }, open ? 'Nascondi' : 'Chi c\'è')));
+
+    var detail = null;
+    if (open) {
+      var chip = function (p, cls) { return h('span', { class: 'chip ' + (cls || '') + (state.me === p.id ? ' me' : '') }, p.name); };
+      detail = h('div', { class: 'detail' },
+        h('div', { class: 'grp' }, h('h3', null, 'Ci sono (' + t.yes.length + ')'),
+          t.yes.length ? h('div', { class: 'chips' }, t.yes.map(function (p) { return chip(p); })) : h('p', { class: 'hint' }, 'Nessuno per ora.')),
+        h('div', { class: 'grp' }, h('h3', null, 'Non ci sono (' + t.no.length + ')'),
+          t.no.length ? h('div', null, t.no.map(function (x) {
+            return h('div', { class: 'no-row' }, h('b', null, x.p.name), x.reason ? h('span', null, x.reason) : null);
+          })) : h('p', { class: 'hint' }, 'Nessuno per ora.')),
+        h('div', { class: 'grp' }, h('h3', null, 'Senza risposta (' + t.wait.length + ')'),
+          t.wait.length ? h('div', { class: 'chips' }, t.wait.map(function (p) { return chip(p, 'wait'); })) : h('p', { class: 'hint' }, 'Hanno risposto tutti.')));
+    }
+    return h('article', { class: 'ev' + (past ? ' past' : '') }, head, answer, summary, detail);
+  }
+
+  function renderCalendar() {
+    var box = $('#view-cal');
+    if (typing(box)) { deferred = true; return; }
+    deferred = false;
+    var parts = [];
+
+    if (!configured) {
+      parts.push(h('div', { class: 'panel banner' }, h('h2', null, 'Da configurare'),
+        h('p', null, 'Apri index.html e incolla in alto l\'indirizzo e la chiave del tuo progetto Supabase.')));
+    } else if (state.error === 'config' && !state.loaded) {
+      parts.push(h('div', { class: 'panel banner' }, h('h2', null, 'Database non raggiungibile'),
+        h('p', null, 'Controlla indirizzo e chiave in index.html e di aver eseguito schema.sql in Supabase.')));
+    } else if (state.error && !state.loaded) {
+      parts.push(h('div', { class: 'panel banner' }, h('h2', null, 'Connessione assente'),
+        h('p', null, 'Non riesco a caricare il calendario. Riprovo da solo tra qualche secondo.')));
+    } else if (!state.loaded) {
+      parts.push(h('div', { class: 'panel' }, h('h2', null, 'Caricamento'), h('p', null, 'Sto recuperando il calendario della squadra.')));
+    } else {
+      if (state.me && !playerById(state.me)) { state.me = null; lsSet('rugby-me', null); }
+      var who = whoBox();
+      if (who) parts.push(who);
+
+      var today = todayISO();
+      var upcoming = state.events.filter(function (e) { return e.date >= today; }).sort(byDate);
+      var past = state.events.filter(function (e) { return e.date < today; }).sort(function (a, b) { return byDate(b, a); });
+
+      if (!state.events.length || !state.players.length) {
+        parts.push(h('div', { class: 'panel' }, h('h2', null, 'Calendario vuoto'),
+          h('p', null, state.pin
+            ? 'Apri Gestione per inserire i nomi dei giocatori e le date di partite e allenamenti.'
+            : 'Chi gestisce la squadra deve ancora inserire i giocatori e le date. Torna a controllare più tardi.')));
+      } else if (!upcoming.length) {
+        parts.push(h('div', { class: 'panel' }, h('h2', null, 'Nessun impegno in programma'), h('p', null, 'Non ci sono partite o allenamenti futuri.')));
+      } else {
+        parts.push(h('div', { class: 'events' }, upcoming.map(function (e) { return eventCard(e, false); })));
+      }
+      if (past.length) {
+        parts.push(h('button', { class: 'more', type: 'button', onclick: function () { state.showPast = !state.showPast; renderAll(); } },
+          state.showPast ? 'Nascondi eventi passati' : 'Mostra eventi passati (' + past.length + ')'));
+        if (state.showPast) parts.push(h('div', { class: 'events' }, past.map(function (e) { return eventCard(e, true); })));
+      }
+    }
+    box.replaceChildren.apply(box, parts);
+  }
+
+  /* ---------- gestione (PIN) ---------- */
+  function adminCall(name, args, okMsg) {
+    return rpc(name, Object.assign({ p_pin: state.pin }, args)).then(function () {
+      if (okMsg) toast(okMsg);
+      return load();
+    }, function (e) {
+      toast(errText(e), true);
+      if (/PIN errato/.test(e && e.message)) logoutAdmin();
+      throw e;
+    });
+  }
+  function logoutAdmin() {
+    state.pin = null; lsSet('rugby-pin', null);
+    $('#tabs').hidden = true; $('#view-admin').replaceChildren();
+    setView('cal'); updateToggle(); renderAll();
+  }
+  function updateToggle() { $('#admin-toggle').textContent = state.pin ? 'Esci dalla gestione' : 'Gestione squadra'; }
+
+  function pinPanel() {
+    var input = h('input', { class: 'field', id: 'pin', type: 'password', inputmode: 'numeric', autocomplete: 'current-password', placeholder: 'PIN', 'aria-label': 'PIN di gestione' });
+    var btn = h('button', { class: 'primary', type: 'submit' }, 'Entra');
+    var form = h('form', { class: 'panel stack', id: 'pin-form' },
+      h('h2', null, 'Gestione squadra'),
+      h('p', null, 'Solo per chi gestisce la squadra. Inserisci il PIN.'),
+      input, btn,
+      h('button', { class: 'link', type: 'button', onclick: function () { state.askPin = false; renderAll(); } }, 'Annulla'));
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var pin = input.value.trim();
+      if (!pin) return;
+      btn.disabled = true;
+      rpc('is_admin', { p_pin: pin }).then(function (ok) {
+        btn.disabled = false;
+        if (ok !== true) { toast('PIN errato.', true); input.select(); return; }
+        state.pin = pin; lsSet('rugby-pin', pin); state.askPin = false;
+        enterAdmin(); setView('admin'); renderAll();
+      }, function (e) { btn.disabled = false; toast(errText(e), true); });
+    });
+    return form;
+  }
+
+  var confirming = new Set();
+  function delBtn(key, action) {
+    var armed = confirming.has(key);
+    return h('button', { class: 'del' + (armed ? ' armed' : ''), type: 'button', onclick: function () {
+      if (armed) { confirming.delete(key); action().catch(function () {}); }
+      else {
+        confirming.add(key); renderAdminLists();
+        setTimeout(function () { confirming.delete(key); renderAdminLists(); }, 4000);
+      }
+    } }, armed ? 'Conferma' : 'Rimuovi');
+  }
+
+  function renderAnswers() {
+    var sel = $('#a-event'), list = $('#ans-list');
+    if (!sel || !list) return;
+    var evs = state.events.slice().sort(byDate);
+    if (!evs.some(function (e) { return e.id === state.adminEv; })) {
+      var up = evs.filter(function (e) { return e.date >= todayISO(); })[0];
+      state.adminEv = (up || evs[evs.length - 1] || {}).id || null;
+    }
+    if (document.activeElement !== sel) {
+      sel.replaceChildren.apply(sel, evs.map(function (e) {
+        var o = h('option', { value: e.id }, (e.type === 'partita' ? 'Partita' : 'Allenamento') + ' · ' + longDate(e.date) + (e.time ? ' ' + e.time : ''));
+        o.selected = e.id === state.adminEv;
+        return o;
+      }));
+    }
+    if (typing(list)) return;
+    if (!state.adminEv) { list.replaceChildren(h('p', { class: 'hint' }, 'Inserisci prima una data.')); return; }
+    if (!state.players.length) { list.replaceChildren(h('p', { class: 'hint' }, 'Inserisci prima i giocatori.')); return; }
+    var eid = state.adminEv;
+    list.replaceChildren.apply(list, state.players.map(function (p) {
+      var a = answerOf(eid, p.id), st = a ? a.status : 'none';
+      var btn = function (val, label, cls) {
+        return h('button', { class: 'ans ' + cls, type: 'button', 'aria-pressed': String(st === val),
+          onclick: function () { writeAnswer(eid, p.id, val, val === 'no' && a ? a.reason : '', 'Risposta aggiornata'); } }, label);
+      };
+      return h('div', { class: 'stack ans-row' },
+        h('b', null, p.name),
+        h('div', { class: 'answer', style: 'grid-template-columns:1fr 1fr 1fr' },
+          btn('si', 'Sì', 'yes'), btn('no', 'No', 'no'), btn('none', 'Vuota', 'clr')),
+        st === 'no' ? h('input', { class: 'reason', type: 'text', maxlength: '120',
+          value: a.reason || '', placeholder: 'Motivo (facoltativo)', 'aria-label': 'Motivo per ' + p.name,
+          onchange: function (e) { writeAnswer(eid, p.id, 'no', e.target.value.trim(), 'Motivo salvato'); } }) : null);
+    }));
+  }
+
+  function renderAdminLists() {
+    var pl = $('#player-list'), el = $('#event-list');
+    if (!pl || !el) return;
+    renderAnswers();
+    pl.replaceChildren.apply(pl, state.players.length
+      ? state.players.map(function (p) {
+          return h('div', { class: 'item' }, h('span', null, p.name),
+            delBtn('p' + p.id, function () { return adminCall('admin_delete_player', { p_id: p.id }, 'Giocatore rimosso'); }));
+        })
+      : [h('p', { class: 'hint' }, 'Nessun giocatore inserito.')]);
+    var evs = state.events.slice().sort(byDate);
+    el.replaceChildren.apply(el, evs.length
+      ? evs.map(function (e) {
+          return h('div', { class: 'item' },
+            h('span', null, (e.type === 'partita' ? 'Partita' : 'Allenamento') + ' · ' + longDate(e.date) + (e.time ? ' ' + e.time : '') + (e.note ? ' · ' + e.note : '')),
+            h('div', { class: 'acts' },
+              h('button', { class: 'del', type: 'button', onclick: function () { startEdit(e.id); } }, 'Modifica'),
+              delBtn('e' + e.id, function () { return adminCall('admin_delete_event', { p_id: e.id }, 'Data rimossa'); })));
+        })
+      : [h('p', { class: 'hint' }, 'Nessuna data inserita.')]);
+  }
+
+  function startEdit(id) {
+    var ev = state.events.find(function (x) { return x.id === id; });
+    if (!ev) return;
+    state.editing = id;
+    $('#f-date').value = ev.date; $('#f-time').value = ev.time; $('#f-type').value = ev.type; $('#f-note').value = ev.note;
+    $('#f-repeat').value = ''; $('#lbl-repeat').hidden = true;
+    $('#form-title').textContent = 'Modifica data';
+    $('#f-submit').textContent = 'Salva modifiche';
+    $('#f-cancel').hidden = false;
+    $('#form-event').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function stopEdit() {
+    state.editing = null;
+    $('#f-date').value = ''; $('#f-time').value = ''; $('#f-note').value = ''; $('#f-repeat').value = '';
+    $('#f-type').value = 'partita'; $('#lbl-repeat').hidden = false;
+    $('#form-title').textContent = 'Date';
+    $('#f-submit').textContent = 'Aggiungi al calendario';
+    $('#f-cancel').hidden = true;
+  }
+
+  function busy(btn, p) { btn.disabled = true; p.then(function () { btn.disabled = false; }, function () { btn.disabled = false; }); }
+
+  function enterAdmin() {
+    $('#tabs').hidden = false; updateToggle();
+    var root = $('#view-admin');
+
+    var namesForm = h('form', { class: 'panel stack', id: 'form-players' },
+      h('h2', null, 'Giocatori'),
+      h('label', { for: 'f-names' }, 'Aggiungi nomi (uno per riga)',
+        h('textarea', { id: 'f-names', placeholder: 'Mario Rossi\nLuca Bianchi\nMatteo Verdi' })),
+      h('button', { class: 'primary', type: 'submit', id: 'p-submit' }, 'Aggiungi giocatori'),
+      h('div', { class: 'list', id: 'player-list' }));
+    namesForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var ta = $('#f-names');
+      var have = new Set(state.players.map(function (p) { return p.name.toLowerCase(); }));
+      var names = [];
+      ta.value.split('\n').map(function (s) { return s.trim(); }).forEach(function (n) {
+        if (n && !have.has(n.toLowerCase())) { have.add(n.toLowerCase()); names.push(n.slice(0, 60)); }
+      });
+      if (!names.length) { toast('Scrivi almeno un nome nuovo.', true); return; }
+      var p = adminCall('admin_add_players', { p_names: names }, names.length === 1 ? 'Giocatore aggiunto' : names.length + ' giocatori aggiunti')
+        .then(function () { ta.value = ''; });
+      busy($('#p-submit'), p); p.catch(function () {});
+    });
+
+    var evForm = h('form', { class: 'panel stack', id: 'form-event' },
+      h('h2', { id: 'form-title' }, 'Date'),
+      h('div', { class: 'row2' },
+        h('label', { for: 'f-date' }, 'Data', h('input', { id: 'f-date', type: 'date', required: true })),
+        h('label', { for: 'f-time' }, 'Ora', h('input', { id: 'f-time', type: 'time' }))),
+      h('div', { class: 'row2' },
+        h('label', { for: 'f-type' }, 'Tipo', h('select', { id: 'f-type' },
+          h('option', { value: 'partita' }, 'Partita'), h('option', { value: 'allenamento' }, 'Allenamento'))),
+        h('label', { for: 'f-repeat', id: 'lbl-repeat' }, 'Ripeti ogni settimana fino al', h('input', { id: 'f-repeat', type: 'date' }))),
+      h('label', { for: 'f-note' }, 'Avversario o luogo (facoltativo)', h('input', { id: 'f-note', type: 'text', maxlength: '80', placeholder: 'vs Amatori, campo B' })),
+      h('button', { class: 'primary', type: 'submit', id: 'f-submit' }, 'Aggiungi al calendario'),
+      h('button', { class: 'link', type: 'button', id: 'f-cancel', hidden: true, onclick: stopEdit }, 'Annulla modifica'),
+      h('div', { class: 'list', id: 'event-list' }));
+    evForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var date = $('#f-date').value, time = $('#f-time').value.slice(0, 5), type = $('#f-type').value;
+      var note = $('#f-note').value.trim(), until = $('#f-repeat').value;
+      if (!date) { toast('Scegli una data.', true); return; }
+      var p;
+      if (state.editing) {
+        p = adminCall('admin_update_event', { p_id: state.editing, p_date: date, p_time: time, p_type: type, p_note: note }, 'Modifiche salvate')
+          .then(stopEdit);
+      } else {
+        var dates = [date];
+        if (until) {
+          if (until < date) { toast('La data finale è prima della prima data.', true); return; }
+          var d = parseISO(date);
+          for (var i = 0; i < 60; i++) { d.setDate(d.getDate() + 7); if (toISO(d) > until) break; dates.push(toISO(d)); }
+        }
+        p = adminCall('admin_add_events', { p_dates: dates, p_time: time, p_type: type, p_note: note }, dates.length === 1 ? 'Data aggiunta' : dates.length + ' date aggiunte')
+          .then(function () { $('#f-note').value = ''; $('#f-repeat').value = ''; });
+      }
+      busy($('#f-submit'), p); p.catch(function () {});
+    });
+
+    var ansPanel = h('div', { class: 'panel stack', id: 'panel-answers' },
+      h('h2', null, 'Risposte dei giocatori'),
+      h('p', null, 'Scegli una data e imposta la risposta al posto di un giocatore.'),
+      h('label', { for: 'a-event', style: 'font-weight:600;display:flex;flex-direction:column;gap:6px' }, 'Data',
+        h('select', { id: 'a-event', class: 'field', onchange: function (e) { state.adminEv = e.target.value; e.target.blur(); renderAnswers(); } })),
+      h('div', { id: 'ans-list' }));
+
+    var share = h('div', { class: 'panel stack' },
+      h('h2', null, 'Condividi'),
+      h('p', null, 'Manda questo link nel gruppo WhatsApp: ognuno sceglie il proprio nome e risponde.'),
+      h('button', { class: 'primary', type: 'button', onclick: function () {
+        var url = location.href.split('#')[0].split('?')[0];
+        if (navigator.share) navigator.share({ title: document.title, text: 'Segna la tua disponibilità:', url: url }).catch(function () {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast('Link copiato'); }, function () { toast(url); });
+        else toast(url);
+      } }, 'Condividi il link'));
+
+    root.replaceChildren(share, namesForm, evForm, ansPanel);
+  }
+
+  /* ---------- viste ---------- */
+  function setView(v) {
+    state.view = v;
+    $('#view-cal').hidden = v !== 'cal';
+    $('#view-admin').hidden = v !== 'admin';
+    $('#tab-cal').setAttribute('aria-current', v === 'cal' ? 'page' : 'false');
+    $('#tab-admin').setAttribute('aria-current', v === 'admin' ? 'page' : 'false');
+    window.scrollTo({ top: 0 });
+  }
+  function renderAll() {
+    if (state.askPin && !state.pin) {
+      var box = $('#view-cal');
+      if (!box.querySelector('#pin-form')) { box.replaceChildren(pinPanel()); $('#pin').focus(); }
+      return;
+    }
+    renderCalendar(); renderAdminLists();
+  }
+
+  $('#tab-cal').addEventListener('click', function () { setView('cal'); });
+  $('#tab-admin').addEventListener('click', function () { setView('admin'); });
+  $('#admin-toggle').addEventListener('click', function () {
+    if (state.pin) { logoutAdmin(); return; }
+    state.askPin = true; setView('cal'); renderAll();
+  });
+  document.addEventListener('focusout', function () { if (deferred) schedule(250); });
+
+  /* ---------- avvio ---------- */
+  state.me = lsGet('rugby-me');
+  state.coach = lsGet('rugby-coach') === '1';
+  if (!configured) { $('#admin-toggle').hidden = true; renderAll(); return; }
+
+  var savedPin = lsGet('rugby-pin');
+  if (savedPin) {
+    rpc('is_admin', { p_pin: savedPin }).then(function (ok) {
+      if (ok === true) { state.pin = savedPin; enterAdmin(); renderAll(); } else lsSet('rugby-pin', null);
+    }, function () {});
+  }
+  load();
+  setInterval(function () { if (document.visibilityState === 'visible') load(); }, REFRESH_MS);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') load(); });
+  window.addEventListener('focus', function () { load(); });
+})();
+</script>
+</body>
+</html>
