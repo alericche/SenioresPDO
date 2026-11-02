@@ -84,6 +84,9 @@ nav button[aria-current="page"] { background: var(--ink); border-color: var(--in
 .tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tag { font: 700 15px/1 var(--display); text-transform: uppercase; letter-spacing: .08em; padding: 5px 9px 4px; border-radius: 6px; border: 2px solid var(--ink); }
 .tag.match { background: var(--ink); color: var(--bg); }
+.tag.mischia { background: var(--pitch); border-color: var(--pitch); color: var(--on-pitch); }
+.tag.tq { border-color: var(--pitch); color: var(--pitch); }
+.sec { font: 700 18px/1 var(--display); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 6px 0 -4px; }
 .time { font: 600 20px/1 var(--display); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
 .rel { font-weight: 600; color: var(--pitch); }
 .note { margin: 0; overflow-wrap: anywhere; }
@@ -213,6 +216,15 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   function longDate(iso) { return cap(fmt({ weekday: 'long', day: 'numeric', month: 'long' }, parseISO(iso))); }
   var byDate = function (a, b) { return (a.date + (a.time || '')).localeCompare(b.date + (b.time || '')); };
 
+  /* ---------- tipi di impegno ---------- */
+  var TYPES = {
+    partita:     { label: 'Partita',     cls: 'match' },
+    allenamento: { label: 'Allenamento', cls: '' },
+    mischia:     { label: 'Mischia',     cls: 'mischia' },
+    tre_quarti:  { label: '3/4',         cls: 'tq' }
+  };
+  var typeLabel = function (t) { return (TYPES[t] || TYPES.allenamento).label; };
+
   /* ---------- storage (per questo telefono) ---------- */
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
@@ -269,7 +281,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
         .filter(function (p) { return p.name; })
         .sort(function (a, b) { return a.name.localeCompare(b.name, 'it'); });
       state.events = (r[1] || []).map(function (e) {
-        return { id: e.id, date: String(e.date || '').slice(0, 10), time: String(e.time || ''), type: e.type === 'partita' ? 'partita' : 'allenamento', note: String(e.note || '') };
+        return { id: e.id, date: String(e.date || '').slice(0, 10), time: String(e.time || ''), type: TYPES[e.type] ? e.type : 'allenamento', note: String(e.note || '') };
       }).filter(function (e) { return /^\d{4}-\d{2}-\d{2}$/.test(e.date); });
       var m = new Map();
       (r[2] || []).forEach(function (a) {
@@ -376,7 +388,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     var me = !state.coach && state.me && playerById(state.me);
     var mine = me ? answerOf(ev.id, me.id) : null;
     var rel = ev.date === todayISO() ? 'Oggi' : ev.date === tomorrowISO() ? 'Domani' : '';
-    var isMatch = ev.type === 'partita';
+    var tp = TYPES[ev.type] || TYPES.allenamento;
     var open = state.expanded.has(ev.id);
 
     var head = h('div', { class: 'head' },
@@ -386,7 +398,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
         h('span', { class: 'mo' }, fmt({ month: 'short' }, d))),
       h('div', { class: 'what' },
         h('div', { class: 'tags' },
-          h('span', { class: 'tag' + (isMatch ? ' match' : '') }, isMatch ? 'Partita' : 'Allenamento'),
+          h('span', { class: 'tag' + (tp.cls ? ' ' + tp.cls : '') }, tp.label),
           ev.time ? h('span', { class: 'time' }, ev.time) : null,
           rel ? h('span', { class: 'rel' }, rel) : null),
         h('p', { class: 'note' }, longDate(ev.date) + (ev.note ? ' · ' + ev.note : ''))));
@@ -470,7 +482,16 @@ form.stack textarea { min-height: 120px; resize: vertical; }
       } else if (!upcoming.length) {
         parts.push(h('div', { class: 'panel' }, h('h2', null, 'Nessun impegno in programma'), h('p', null, 'Non ci sono partite o allenamenti futuri.')));
       } else {
-        parts.push(h('div', { class: 'events' }, upcoming.map(function (e) { return eventCard(e, false); })));
+        var matches = upcoming.filter(function (e) { return e.type === 'partita'; });
+        var others = upcoming.filter(function (e) { return e.type !== 'partita'; });
+        if (matches.length) {
+          parts.push(h('h2', { class: 'sec' }, 'Partite'),
+            h('div', { class: 'events' }, matches.map(function (e) { return eventCard(e, false); })));
+        }
+        if (others.length) {
+          parts.push(h('h2', { class: 'sec' }, 'Allenamenti'),
+            h('div', { class: 'events' }, others.map(function (e) { return eventCard(e, false); })));
+        }
       }
       if (past.length) {
         parts.push(h('button', { class: 'more', type: 'button', onclick: function () { state.showPast = !state.showPast; renderAll(); } },
@@ -544,7 +565,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     }
     if (document.activeElement !== sel) {
       sel.replaceChildren.apply(sel, evs.map(function (e) {
-        var o = h('option', { value: e.id }, (e.type === 'partita' ? 'Partita' : 'Allenamento') + ' · ' + longDate(e.date) + (e.time ? ' ' + e.time : ''));
+        var o = h('option', { value: e.id }, typeLabel(e.type) + ' · ' + longDate(e.date) + (e.time ? ' ' + e.time : ''));
         o.selected = e.id === state.adminEv;
         return o;
       }));
@@ -583,7 +604,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     el.replaceChildren.apply(el, evs.length
       ? evs.map(function (e) {
           return h('div', { class: 'item' },
-            h('span', null, (e.type === 'partita' ? 'Partita' : 'Allenamento') + ' · ' + longDate(e.date) + (e.time ? ' ' + e.time : '') + (e.note ? ' · ' + e.note : '')),
+            h('span', null, typeLabel(e.type) + ' · ' + longDate(e.date) + (e.time ? ' ' + e.time : '') + (e.note ? ' · ' + e.note : '')),
             h('div', { class: 'acts' },
               h('button', { class: 'del', type: 'button', onclick: function () { startEdit(e.id); } }, 'Modifica'),
               delBtn('e' + e.id, function () { return adminCall('admin_delete_event', { p_id: e.id }, 'Data rimossa'); })));
@@ -644,7 +665,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
         h('label', { for: 'f-time' }, 'Ora', h('input', { id: 'f-time', type: 'time' }))),
       h('div', { class: 'row2' },
         h('label', { for: 'f-type' }, 'Tipo', h('select', { id: 'f-type' },
-          h('option', { value: 'partita' }, 'Partita'), h('option', { value: 'allenamento' }, 'Allenamento'))),
+          Object.keys(TYPES).map(function (k) { return h('option', { value: k }, TYPES[k].label); }))),
         h('label', { for: 'f-repeat', id: 'lbl-repeat' }, 'Ripeti ogni settimana fino al', h('input', { id: 'f-repeat', type: 'date' }))),
       h('label', { for: 'f-note' }, 'Avversario o luogo (facoltativo)', h('input', { id: 'f-note', type: 'text', maxlength: '80', placeholder: 'vs Amatori, campo B' })),
       h('button', { class: 'primary', type: 'submit', id: 'f-submit' }, 'Aggiungi al calendario'),
