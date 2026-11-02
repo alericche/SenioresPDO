@@ -132,7 +132,11 @@ form.stack textarea { min-height: 120px; resize: vertical; }
 .item span { min-width: 0; overflow-wrap: anywhere; }
 .del { min-height: 44px; padding: 0 12px; border-radius: 8px; border: 2px solid var(--line); background: transparent; font-weight: 600; flex: none; }
 .del.armed { background: var(--no); border-color: var(--no); color: var(--on-no); }
-.acts { display: flex; gap: 8px; flex: none; }
+.acts { display: flex; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.item.pl { flex-wrap: wrap; }
+.item.pl > span { flex: 1 1 140px; }
+.role { min-height: 44px; padding: 0 12px; border-radius: 8px; border: 2px solid var(--line); background: transparent; font-weight: 600; flex: none; }
+.role[aria-pressed="true"] { background: var(--pitch); border-color: var(--pitch); color: var(--on-pitch); }
 .ans-row { padding: 10px 0; border-top: 1px solid var(--line); }
 .ans-row:first-child { border-top: 0; }
 
@@ -263,6 +267,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   function rpc(name, args) { return api('rpc/' + name, { method: 'POST', body: args }); }
   function errText(e) {
     if (e && /PIN errato/.test(e.message)) return 'PIN errato: rientra nella gestione.';
+    if (e && /Ruolo non abilitato/.test(e.message)) return 'Questo impegno è riservato a un altro ruolo.';
     if (e && e.status === 429) return 'Troppe operazioni ravvicinate. Riprova tra un attimo.';
     if (e && (e.status === 401 || e.status === 403)) return 'Accesso al database rifiutato. Controlla la configurazione.';
     return 'Salvataggio non riuscito. Controlla la connessione e riprova.';
@@ -273,11 +278,11 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   function load() {
     if (loading) return loading;
     loading = Promise.all([
-      api('players?select=id,name'),
+      api('players?select=id,name,mischia,tre_quarti'),
       api('events?select=id,date,time,type,note'),
       api('avail?select=event_id,player_id,status,reason')
     ]).then(function (r) {
-      state.players = (r[0] || []).map(function (p) { return { id: p.id, name: String(p.name || '') }; })
+      state.players = (r[0] || []).map(function (p) { return { id: p.id, name: String(p.name || ''), mischia: p.mischia !== false, tre_quarti: p.tre_quarti !== false }; })
         .filter(function (p) { return p.name; })
         .sort(function (a, b) { return a.name.localeCompare(b.name, 'it'); });
       state.events = (r[1] || []).map(function (e) {
@@ -341,9 +346,16 @@ form.stack textarea { min-height: 120px; resize: vertical; }
   /* ---------- helpers ---------- */
   function playerById(id) { return state.players.find(function (p) { return p.id === id; }); }
   function answerOf(eid, pid) { return state.avail.get(eid + '_' + pid); }
-  function tally(eid) {
-    var yes = [], no = [], wait = [];
+  /* Chi può rispondere: Mischia solo ai giocatori di mischia, 3/4 solo ai 3/4, il resto a tutti. */
+  function eligible(p, type) {
+    if (type === 'mischia') return p.mischia;
+    if (type === 'tre_quarti') return p.tre_quarti;
+    return true;
+  }
+  function tally(ev) {
+    var eid = ev.id, yes = [], no = [], wait = [];
     state.players.forEach(function (p) {
+      if (!eligible(p, ev.type)) return;
       var a = answerOf(eid, p.id);
       if (a && a.status === 'si') yes.push(p);
       else if (a && a.status === 'no') no.push({ p: p, reason: a.reason || '' });
@@ -383,8 +395,8 @@ form.stack textarea { min-height: 120px; resize: vertical; }
 
   function eventCard(ev, past) {
     var d = parseISO(ev.date);
-    var t = tally(ev.id);
-    var total = state.players.length;
+    var t = tally(ev);
+    var total = t.yes.length + t.no.length + t.wait.length;
     var me = !state.coach && state.me && playerById(state.me);
     var mine = me ? answerOf(ev.id, me.id) : null;
     var rel = ev.date === todayISO() ? 'Oggi' : ev.date === tomorrowISO() ? 'Domani' : '';
@@ -404,7 +416,9 @@ form.stack textarea { min-height: 120px; resize: vertical; }
         h('p', { class: 'note' }, longDate(ev.date) + (ev.note ? ' · ' + ev.note : ''))));
 
     var answer = null;
-    if (me) {
+    if (me && !eligible(me, ev.type)) {
+      answer = h('p', { class: 'hint' }, 'Impegno riservato ai giocatori di ' + typeLabel(ev.type) + ': tu puoi solo guardare.');
+    } else if (me) {
       answer = h('div', { class: 'stack' },
         h('div', { class: 'answer', role: 'group', 'aria-label': 'La tua risposta' },
           h('button', { class: 'ans yes', type: 'button', 'aria-pressed': String(!!mine && mine.status === 'si'), onclick: function () { setStatus(ev.id, 'si'); } }, 'Ci sono'),
@@ -574,7 +588,12 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     if (!state.adminEv) { list.replaceChildren(h('p', { class: 'hint' }, 'Inserisci prima una data.')); return; }
     if (!state.players.length) { list.replaceChildren(h('p', { class: 'hint' }, 'Inserisci prima i giocatori.')); return; }
     var eid = state.adminEv;
+    var evType = (state.events.find(function (e) { return e.id === eid; }) || {}).type;
     list.replaceChildren.apply(list, state.players.map(function (p) {
+      if (!eligible(p, evType)) {
+        return h('div', { class: 'stack ans-row' }, h('b', null, p.name),
+          h('p', { class: 'hint' }, 'Non convocabile: non è un giocatore di ' + typeLabel(evType) + '.'));
+      }
       var a = answerOf(eid, p.id), st = a ? a.status : 'none';
       var btn = function (val, label, cls) {
         return h('button', { class: 'ans ' + cls, type: 'button', 'aria-pressed': String(st === val),
@@ -596,8 +615,17 @@ form.stack textarea { min-height: 120px; resize: vertical; }
     renderAnswers();
     pl.replaceChildren.apply(pl, state.players.length
       ? state.players.map(function (p) {
-          return h('div', { class: 'item' }, h('span', null, p.name),
-            delBtn('p' + p.id, function () { return adminCall('admin_delete_player', { p_id: p.id }, 'Giocatore rimosso'); }));
+          var role = function (key, label) {
+            return h('button', { class: 'role', type: 'button', 'aria-pressed': String(!!p[key]), 'aria-label': 'Ruolo ' + label + ' di ' + p.name,
+              onclick: function () {
+                var next = { mischia: p.mischia, tre_quarti: p.tre_quarti };
+                next[key] = !p[key];
+                adminCall('admin_set_player_roles', { p_id: p.id, p_mischia: next.mischia, p_tre_quarti: next.tre_quarti }, 'Ruolo aggiornato').catch(function () {});
+              } }, label);
+          };
+          return h('div', { class: 'item pl' }, h('span', null, p.name),
+            h('div', { class: 'acts' }, role('mischia', 'Mischia'), role('tre_quarti', '3/4'),
+              delBtn('p' + p.id, function () { return adminCall('admin_delete_player', { p_id: p.id }, 'Giocatore rimosso'); })));
         })
       : [h('p', { class: 'hint' }, 'Nessun giocatore inserito.')]);
     var evs = state.events.slice().sort(byDate);
@@ -643,6 +671,7 @@ form.stack textarea { min-height: 120px; resize: vertical; }
       h('label', { for: 'f-names' }, 'Aggiungi nomi (uno per riga)',
         h('textarea', { id: 'f-names', placeholder: 'Mario Rossi\nLuca Bianchi\nMatteo Verdi' })),
       h('button', { class: 'primary', type: 'submit', id: 'p-submit' }, 'Aggiungi giocatori'),
+      h('p', { class: 'hint' }, 'I nuovi giocatori partono con entrambi i ruoli. Tocca Mischia o 3/4 accanto a un nome per attivare (verde) o togliere il ruolo: solo chi ha il ruolo può rispondere agli impegni di quel tipo.'),
       h('div', { class: 'list', id: 'player-list' }));
     namesForm.addEventListener('submit', function (e) {
       e.preventDefault();
